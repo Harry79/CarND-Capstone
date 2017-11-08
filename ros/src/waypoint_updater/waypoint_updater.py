@@ -49,13 +49,13 @@ class WaypointUpdater(object):
 
         rospy.spin()
 
-    def pose_cb(self, msg):
+    def pose_cb(self, pose):
         # Find nearest base waypoint
         nearest_wp = min(
             self.base_waypoints,
-            key=lambda wp, msg=msg: distance(msg.pose.position, wp.pose.pose.position))
+            key=lambda wp, pose=pose: distance(pose.pose.position, wp.pose.pose.position))
 
-        # TODO: Instead of always skipping, skip dependent on orientation
+        # TODO: Instead of always skipping 1, skip dependent on orientation
         self.cur_wp = self.base_waypoints.index(nearest_wp) + 1
 
         # Publish new final waypoints, if changed
@@ -65,9 +65,11 @@ class WaypointUpdater(object):
             for i in range(0, LOOKAHEAD_WPS):
                 lane.waypoints.append(self.base_waypoints[i % max_index])
             self.final_waypoints_pub.publish(lane)
+        self.last_wp = self.cur_wp
 
-    def waypoints_cb(self, waypoints):
-        self.base_waypoints = waypoints.waypoints
+    def waypoints_cb(self, lane):
+        # Simply assign waypoints from lane
+        self.base_waypoints = lane.waypoints
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
