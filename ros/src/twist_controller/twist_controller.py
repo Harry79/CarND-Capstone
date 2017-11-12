@@ -1,5 +1,7 @@
 
 from yaw_controller import YawController
+from lowpass import LowPassFilter
+from pid import PID
 import math
 
 GAS_DENSITY = 2.858
@@ -21,11 +23,15 @@ class Controller(object):
             max_steer_angle=max_steer_angle)
 
     def control(self, current_velocity, target_velocity):
-        cur_v = vector_magnitude(current_velocity.twist.linear)
-        lin_v = vector_magnitude(target_velocity.twist.linear)
+        cur_v = current_velocity.twist.linear.x
+        lin_v = target_velocity.twist.linear.x
         ang_v = target_velocity.twist.angular.z
 
         steering = self.yaw_controller.get_steering(lin_v, ang_v, cur_v)
 
+        # TODO write decent throttle/brake control (PID)
+        throttle = 1.0
+        brake = 0.0
+
         # Return throttle, brake, steering
-        return 1.0, 0.0, steering
+        return throttle, brake, steering

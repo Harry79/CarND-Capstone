@@ -31,6 +31,7 @@ that we have created in the `__init__` function.
 
 '''
 
+from twist_controller import vector_magnitude
 
 class DBWNode(object):
     def __init__(self):
@@ -56,10 +57,10 @@ class DBWNode(object):
 
         # Create `TwistController` object
         self.controller = Controller(
-            wheel_base=wheel_radius,
-            steer_ratio=wheel_base,
+            wheel_base=wheel_base,
+            steer_ratio=steer_ratio,
             min_speed=0.0,
-            max_lat_accel=steer_ratio,
+            max_lat_accel=max_lat_accel,
             max_steer_angle=max_steer_angle)
         self.target_velocity = TwistStamped()
         self.current_velocity = TwistStamped()
