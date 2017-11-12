@@ -44,28 +44,15 @@ class WaypointUpdater(object):
 
         # Add other member variables you need below
         self.base_waypoints = []
+        self.cur_pos = PoseStamped()
         self.cur_wp = -1
         self.last_wp = -1
 
-        rospy.spin()
+        # Enter processing loop
+        self.loop()
 
     def pose_cb(self, pose):
-        # Find nearest base waypoint
-        nearest_wp = min(
-            self.base_waypoints,
-            key=lambda wp, pose=pose: distance(pose.pose.position, wp.pose.pose.position))
-
-        # TODO: Instead of always skipping 1, skip dependent on orientation
-        self.cur_wp = self.base_waypoints.index(nearest_wp) + 1
-
-        # Publish new final waypoints, if changed
-        if self.cur_wp != self.last_wp:
-            lane = Lane()
-            max_index = len(self.base_waypoints)
-            for i in range(0, LOOKAHEAD_WPS):
-                lane.waypoints.append(self.base_waypoints[i % max_index])
-            self.final_waypoints_pub.publish(lane)
-        self.last_wp = self.cur_wp
+        self.cur_pos = pose
 
     def waypoints_cb(self, lane):
         # Simply assign waypoints from lane
@@ -92,6 +79,34 @@ class WaypointUpdater(object):
             dist += distance(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
+
+    # Main loop
+    def loop(self):
+        rate = rospy.Rate(2)
+
+        while not rospy.is_shutdown():
+            if self.cur_pos.header.seq > 0 and len(self.base_waypoints) > 0:
+                # Find nearest base waypoint
+                nearest_wp = min(
+                    self.base_waypoints,
+                    key=lambda wp, pos=self.cur_pos: distance(pos.pose.position, wp.pose.pose.position))
+
+                # TODO: Instead of always skipping 1, skip dependent on orientation
+                self.cur_wp = self.base_waypoints.index(nearest_wp) + 1
+
+                # Publish new final waypoints, if changed
+                if self.cur_wp != self.last_wp:
+                    self.publish()
+                    self.last_wp = self.cur_wp
+            rate.sleep()
+
+    # Publish final waypoints
+    def publish(self):
+        lane = Lane()
+        max_index = len(self.base_waypoints)
+        for i in range(0, LOOKAHEAD_WPS):
+            lane.waypoints.append(self.base_waypoints[(self.cur_wp + i) % max_index])
+        self.final_waypoints_pub.publish(lane)
 
 
 if __name__ == '__main__':
