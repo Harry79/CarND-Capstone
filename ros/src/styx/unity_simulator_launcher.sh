@@ -2,6 +2,8 @@
 #
 # Script to launch the CarND Unity simulator
 
+rosparam set enable_statistics true
+
 THIS_DIR="$(cd "$(dirname "$0")" && pwd -P && cd - > /dev/null)"
 USER_PROFILE="$THIS_DIR/profile.tmp"
 
