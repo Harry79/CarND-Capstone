@@ -30,10 +30,12 @@ class Controller(object):
         steering = self.yaw_controller.get_steering(lin_v, ang_v, cur_v)
 
         # TODO write decent throttle/brake control (PID)
-        throttle = (lin_v-cur_v);
+        throttle = (lin_v-cur_v)
         brake = 0.0
-        if throttle>1.0: throttle = 1.0
-        if throttle<0.0: throttle = 0.0
+        if throttle > 1.0:
+            throttle = 1.0
+        if throttle < 0.0:
+            throttle = 0.0
 
         # Return throttle, brake, steering
         return throttle, brake, steering
