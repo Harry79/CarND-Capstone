@@ -10,6 +10,8 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+import math
+import numpy as np
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -19,6 +21,7 @@ class TLDetector(object):
 
         self.pose = None
         self.waypoints = None
+        self.np_waypoints = None
         self.camera_image = None
         self.lights = []
 
@@ -52,10 +55,12 @@ class TLDetector(object):
         rospy.spin()
 
     def pose_cb(self, msg):
-        self.pose = msg
+        self.pose = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+        self.np_waypoints = np.array([[wp.pose.pose.position.x, wp.pose.pose.position.y,
+                                       wp.pose.pose.position.z] for wp in waypoints.waypoints])
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -88,6 +93,11 @@ class TLDetector(object):
             self.upcoming_red_light_pub.publish(Int32(light_wp))
         else:
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
+
+        if not light_wp == -1:
+            #rospy.loginfo("Currently detected red light at ind {}".format(self.last_wp))
+            pass
+
         self.state_count += 1
 
     def get_closest_waypoint(self, pose):
@@ -100,10 +110,38 @@ class TLDetector(object):
             int: index of the closest waypoint in self.waypoints
 
         """
-        #TODO implement
-        return 0
 
-    def get_light_state(self, light):
+        min_ind = None
+        min_dist = 1e+100
+
+        for ind, wp in enumerate(self.waypoints.waypoints):
+            d = np.linalg.norm(pose - np.array([wp.pose.pose.position.x, wp.pose.pose.position.y,
+                                                wp.pose.pose.position.z]))
+            if d < min_dist:
+                min_ind = ind
+                min_dist = d
+
+        return min_ind
+
+    def get_closest_traffic_light(self, light_position):
+
+        if not self.lights:
+            return None
+
+        min_light_dist = 1e+10
+        closest_light = None
+
+        ecl = lambda a, b: math.sqrt((a.x - b[0]) ** 2 + (a.y - b[1]) ** 2)
+        for light in self.lights:
+            light_pose = light.pose.pose
+            dist = ecl(light_pose.position, light_position)
+            if dist < min_light_dist:
+                min_light_dist = dist
+                closest_light = light
+
+        return closest_light
+
+    def get_light_state(self, light, ):
         """Determines the current color of the traffic light
 
         Args:
@@ -132,18 +170,46 @@ class TLDetector(object):
 
         """
         light = None
+        light_pose = None
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        if(self.pose):
-            car_position = self.get_closest_waypoint(self.pose.pose)
 
-        #TODO find the closest visible traffic light (if one exists)
+        if self.pose is not None and self.waypoints:
+
+            # Get waypoint clostest to current vehicle position
+            wp_position_ind = self.get_closest_waypoint(self.pose)
+            wp_position = self.waypoints.waypoints[wp_position_ind]
+
+            detection_distance = 50
+            min_light_dist = 1e+10
+            closest_light_index = None
+            ecl = lambda a, b: math.sqrt((a.x - b[0]) ** 2 + (a.y - b[1]) ** 2)
+            for ind, light_position in enumerate(stop_line_positions):
+                light_x = light_position[0]
+                car_position = wp_position.pose.pose.position
+                dist = abs(car_position.x - light_x)
+                if dist < detection_distance:
+                    euc_dist = ecl(car_position, light_position)
+                    if euc_dist < detection_distance and euc_dist < min_light_dist:
+                        min_light_dist = euc_dist
+                        closest_light_index = ind
+
+            #rospy.loginfo("Distance to closest traffic light {} is {}".format(closest_light_index, min_light_dist))
+
+            if closest_light_index != None:
+                light = self.get_closest_traffic_light(stop_line_positions[closest_light_index])
+                light_pose = np.array([stop_line_positions[closest_light_index][0],
+                                       stop_line_positions[closest_light_index][1], 0])
 
         if light:
             state = self.get_light_state(light)
-            return light_wp, state
-        self.waypoints = None
+            light_wp_ind = self.get_closest_waypoint(light_pose)
+            light_wp = self.waypoints.waypoints[light_wp_ind]
+
+            # Todo: Return state of traffic light received from classification algorithm
+            return light_wp_ind, light.state
+
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
