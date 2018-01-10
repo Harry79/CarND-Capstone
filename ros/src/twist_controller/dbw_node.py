@@ -7,6 +7,8 @@ from geometry_msgs.msg import TwistStamped
 from twist_controller import Controller
 import math
 
+GAS_DENSITY = 2.588
+
 
 '''
 You can build this node only after you have built (or partially built) the `waypoint_updater` node.
@@ -47,6 +49,7 @@ class DBWNode(object):
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+        rate = rospy.get_param('~rate',50.)
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
@@ -55,17 +58,31 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
+        self.rate = rate
+
         # Create `TwistController` object
         self.controller = Controller(
             wheel_base=wheel_base,
             steer_ratio=steer_ratio,
             min_speed=0.0,
             max_lat_accel=max_lat_accel,
-            max_steer_angle=max_steer_angle)
+            max_steer_angle=max_steer_angle,
+            th_kp=1.0,
+            th_ki=0.0,
+            th_kd=0.0,
+            th_mn=0.0,
+            th_mx=1.0,
+            br_kp=(vehicle_mass+(GAS_DENSITY*fuel_capacity))*wheel_radius,
+            br_ki=0.0,
+            br_kd=0.0,
+            br_mn=0.0,
+            br_mx=1.0, 
+            rate=rate
+            )
         self.target_velocity = TwistStamped()
         self.current_velocity = TwistStamped()
         self.is_enabled = True
-
+        
 
         # Subscribe to all the topics you need to
         rospy.Subscriber('/dbw_enabled', Bool, self.dbw_enabled_cb)
@@ -83,8 +100,9 @@ class DBWNode(object):
     def twist_cb(self, twist):
         self.target_velocity = twist
 
-    def loop(self):
-        rate = rospy.Rate(50) # 50Hz
+    def loop(self): 
+        rate = rospy.Rate(self.rate) # 50Hz
+
         while not rospy.is_shutdown():
             # Get predicted throttle, brake, and steering using `twist_controller`
             if self.is_enabled:
