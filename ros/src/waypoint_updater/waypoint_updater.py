@@ -49,6 +49,8 @@ class WaypointUpdater(object):
         self.cur_wp = -1
         self.last_wp = -1
         self.next_light_waypoint_index = -1
+        # remove the following line when lights start publishing
+        self.next_light_waypoint_index = 400  #temporary light index until topic starts publishing
 
         # Enter processing loop
         self.loop()
@@ -64,8 +66,6 @@ class WaypointUpdater(object):
         # TODO: Callback for /traffic_waypoint message. Implement
         # uncomment the following line when lights start publishing
         # self.next_light_waypoint_index = msg
-        # remove the following line when lights start publishing
-        self.next_light_waypoint_index = 1000  #temporary light index until topic starts publishing
         rospy.loginfo('index of upcoming traffic light: ' + str(msg))
 
     def obstacle_cb(self, msg):
@@ -112,11 +112,18 @@ class WaypointUpdater(object):
                     del self.final_waypoints[:]
                     for i in range(0, LOOKAHEAD_WPS):
                         self.final_waypoints.append(self.base_waypoints[(self.cur_wp + i) % max_index])
-
-                    rospy.loginfo('first final waypoint: ' + str(self.final_waypoints[0]))
-                    self.set_waypoint_velocity(self.final_waypoints, 0, 5)
-                    rospy.loginfo('first velocity in final waypoints:' + 
+                    # If light is within range, update velocities
+                    rospy.loginfo('self.cur_wp (index): ' + str(self.cur_wp))
+                    if ((self.next_light_waypoint_index > self.cur_wp) and
+                        (self.next_light_waypoint_index < self.cur_wp + LOOKAHEAD_WPS)):
+                        #  update velocities
+                        rospy.loginfo('updating velocities')
+                        rospy.loginfo('first final waypoint: ' + str(self.final_waypoints[0]))
+                        self.set_waypoint_velocity(self.final_waypoints, 0, 5)
+                        rospy.loginfo('first velocity in final waypoints:' + 
 			          str(self.get_waypoint_velocity(self.final_waypoints[0]) ) )
+                    
+                    # Completed updating final waypoings so publish them
                     self.publish()
                     self.last_wp = self.cur_wp
             rate.sleep()
