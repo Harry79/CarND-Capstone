@@ -86,12 +86,16 @@ class WaypointUpdater(object):
         rate = rospy.Rate(10)
 
         while not rospy.is_shutdown():
+            rospy.loginfo('waypointupdater loop')
             if self.cur_pos.header.seq > 0 and len(self.base_waypoints) > 0:
-                max_index = len(self.base_waypoints)
-
+		rospy.loginfo('header.seq > 0 and base_waypoints > 0')
+		max_index = len(self.base_waypoints)
+		
                 if len(self.final_waypoints) > 0:
-                    waypoint_candidates = self.final_waypoints
+                    rospy.loginfo('final_waypoints > 0')
+		    waypoint_candidates = self.final_waypoints
                 else:
+		    rospy.loginfo('final_waypoints <= 0')
                     waypoint_candidates = self.base_waypoints
 
                 # Find nearest base waypoint (ignore heading)
@@ -99,6 +103,7 @@ class WaypointUpdater(object):
                     waypoint_candidates,
                     key=lambda wp, pos=self.cur_pos: distance(pos.pose.position, wp.pose.pose.position))
                 self.cur_wp = self.base_waypoints.index(nearest_wp)
+		rospy.loginfo('current waypoint velocity: ' + str(self.get_waypoint_velocity(nearest_wp)))
 
                 # Publish new final waypoints, if changed
                 if self.cur_wp != self.last_wp:
@@ -106,6 +111,8 @@ class WaypointUpdater(object):
                     for i in range(0, LOOKAHEAD_WPS):
                         self.final_waypoints.append(self.base_waypoints[(self.cur_wp + i) % max_index])
 
+                    rospy.loginfo('updated final waypoints')
+		    rospy.loginfo('velocity: ' + str(self.get_waypoint_velocity(self.final_waypoints[0])))
                     self.publish()
                     self.last_wp = self.cur_wp
             rate.sleep()
@@ -113,6 +120,7 @@ class WaypointUpdater(object):
     # Publish final waypoints
     def publish(self):
         lane = Lane()
+        print "in waypoing updater"
         lane.waypoints = self.final_waypoints
         self.final_waypoints_pub.publish(lane)
 
