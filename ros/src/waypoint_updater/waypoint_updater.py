@@ -46,8 +46,9 @@ class WaypointUpdater(object):
         self.base_waypoints = []
         self.final_waypoints = []
         self.cur_pos = PoseStamped()
-        self.cur_wp = -1
-        self.last_wp = -1
+        self.cur_wp_idx = -1           # Index of wp we want to move to in the current loop
+        self.last_wp_idx = -1          # Index of wp from the previous loop
+        self.nearest_light_idx = -1    # Index of the next light (-1 if no upcoming light)
 
         # Enter processing loop
         self.loop()
@@ -60,8 +61,9 @@ class WaypointUpdater(object):
         self.base_waypoints = lane.waypoints
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        # Callback for /traffic_waypoint message
+        self.nearest_light_idx = msg
+        rospy.loginfo('Index of next traffic light: ' + str(msg))
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -86,41 +88,39 @@ class WaypointUpdater(object):
         rate = rospy.Rate(10)
 
         while not rospy.is_shutdown():
-            rospy.loginfo('waypointupdater loop')
             if self.cur_pos.header.seq > 0 and len(self.base_waypoints) > 0:
-		rospy.loginfo('header.seq > 0 and base_waypoints > 0')
 		max_index = len(self.base_waypoints)
-		
+
                 if len(self.final_waypoints) > 0:
-                    rospy.loginfo('final_waypoints > 0')
+                    # Final waypoints already exist so use as candidates for the next round
 		    waypoint_candidates = self.final_waypoints
                 else:
-		    rospy.loginfo('final_waypoints <= 0')
+                    # No Final waypoints so use the base waypoints
                     waypoint_candidates = self.base_waypoints
 
                 # Find nearest base waypoint (ignore heading)
                 nearest_wp = min(
                     waypoint_candidates,
                     key=lambda wp, pos=self.cur_pos: distance(pos.pose.position, wp.pose.pose.position))
-                self.cur_wp = self.base_waypoints.index(nearest_wp)
+                # Make the nearest waypoint to be the current one and get its index
+                self.cur_wp_idx = self.base_waypoints.index(nearest_wp)
 		rospy.loginfo('current waypoint velocity: ' + str(self.get_waypoint_velocity(nearest_wp)))
 
-                # Publish new final waypoints, if changed
-                if self.cur_wp != self.last_wp:
+                # Generate & publish new final waypoints, if we moved
+                if self.cur_wp_idx != self.last_wp_idx:
                     del self.final_waypoints[:]
                     for i in range(0, LOOKAHEAD_WPS):
-                        self.final_waypoints.append(self.base_waypoints[(self.cur_wp + i) % max_index])
+                        self.final_waypoints.append(self.base_waypoints[(self.cur_wp_idx + i) % max_index])
 
                     rospy.loginfo('updated final waypoints')
 		    rospy.loginfo('velocity: ' + str(self.get_waypoint_velocity(self.final_waypoints[0])))
                     self.publish()
-                    self.last_wp = self.cur_wp
+                    self.last_wp_idx = self.cur_wp_idx
             rate.sleep()
 
     # Publish final waypoints
     def publish(self):
         lane = Lane()
-        print "in waypoing updater"
         lane.waypoints = self.final_waypoints
         self.final_waypoints_pub.publish(lane)
 
