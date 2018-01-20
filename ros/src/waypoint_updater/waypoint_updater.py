@@ -48,7 +48,7 @@ class WaypointUpdater(object):
         self.cur_pos = PoseStamped()
         self.cur_wp_idx = -1           # Index of wp we want to move to in the current loop
         self.last_wp_idx = -1          # Index of wp from the previous loop
-        self.nearest_light_idx = -1    # Index of the next light (-1 if no upcoming light)
+        self.next_light_idx = -1    # Index of the next light (-1 if no upcoming light)
 
         # Enter processing loop
         self.loop()
@@ -62,8 +62,8 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # Callback for /traffic_waypoint message
-        self.nearest_light_idx = msg
-        rospy.loginfo('Index of next traffic light: ' + str(msg))
+        self.next_light_idx = msg.data
+        rospy.loginfo('callback light idx received: ' + str(self.next_light_idx))
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -111,9 +111,16 @@ class WaypointUpdater(object):
                     del self.final_waypoints[:]
                     for i in range(0, LOOKAHEAD_WPS):
                         self.final_waypoints.append(self.base_waypoints[(self.cur_wp_idx + i) % max_index])
-
+                    rospy.loginfo('next_light_idx: ' + str(self.next_light_idx))
+                    if self.next_light_idx <> -1: #if there is an upcoming red light, set wp velocities to 0
+                        rospy.loginfo('next_light_idx <> -1')
+                        for i in range(0, LOOKAHEAD_WPS):
+                            self.set_waypoint_velocity(self.final_waypoints, i, 0)
+                    else:                         #if there is no upcoming red light, set wp velocities to 10
+                        rospy.loginfo('next_light_idx = -1')
+                        for i in range(0, len(self.final_waypoints)):
+                            self.set_waypoint_velocity(self.final_waypoints, i, 10)
                     rospy.loginfo('updated final waypoints')
-		    rospy.loginfo('velocity: ' + str(self.get_waypoint_velocity(self.final_waypoints[0])))
                     self.publish()
                     self.last_wp_idx = self.cur_wp_idx
             rate.sleep()
