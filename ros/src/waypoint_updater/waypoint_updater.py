@@ -49,6 +49,7 @@ class WaypointUpdater(object):
         self.cur_wp_idx = -1           # Index of wp we want to move to in the current loop
         self.last_wp_idx = -1          # Index of wp from the previous loop
         self.next_light_idx = -1    # Index of the next light (-1 if no upcoming light)
+        self.max_velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
 
         # Enter processing loop
         self.loop()
@@ -83,6 +84,9 @@ class WaypointUpdater(object):
             wp1 = i
         return dist
 
+    def kmph2mps(self, velocity_kmph):
+        return (velocity_kmph * 1000.) / (60. * 60.)
+
     # Main loop
     def loop(self):
         rate = rospy.Rate(10)
@@ -116,10 +120,10 @@ class WaypointUpdater(object):
                         rospy.loginfo('next_light_idx <> -1')
                         for i in range(0, LOOKAHEAD_WPS):
                             self.set_waypoint_velocity(self.final_waypoints, i, 0)
-                    else:                         #if there is no upcoming red light, set wp velocities to 10
+                    else:       #if there is no upcoming red light, set wp velocities to the max in rosparam
                         rospy.loginfo('next_light_idx = -1')
                         for i in range(0, len(self.final_waypoints)):
-                            self.set_waypoint_velocity(self.final_waypoints, i, 10)
+                            self.set_waypoint_velocity(self.final_waypoints, i, self.max_velocity)
                     rospy.loginfo('updated final waypoints')
                     self.publish()
                     self.last_wp_idx = self.cur_wp_idx
