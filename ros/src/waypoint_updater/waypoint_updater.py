@@ -23,7 +23,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 200  # Number of waypoints we will publish. You can change this number
 
 
 # Tools
@@ -46,9 +46,9 @@ class WaypointUpdater(object):
         self.base_waypoints = []
         self.final_waypoints = []
         self.cur_pos = PoseStamped()
-        self.cur_wp_idx = -1           # Index of wp we want to move to in the current loop
-        self.last_wp_idx = -1          # Index of wp from the previous loop
-        self.next_light_idx = -1    # Index of the next light (-1 if no upcoming light)
+        self.cur_wp_idx = -1  # Index of wp we want to move to in the current loop
+        self.last_wp_idx = -1  # Index of wp from the previous loop
+        self.next_light_idx = -1  # Index of the next light (-1 if no upcoming light)
         self.max_velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
 
         # Enter processing loop
@@ -64,7 +64,6 @@ class WaypointUpdater(object):
     def traffic_cb(self, msg):
         # Callback for /traffic_waypoint message
         self.next_light_idx = msg.data
-        rospy.loginfo('callback light idx received: ' + str(self.next_light_idx))
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -79,7 +78,7 @@ class WaypointUpdater(object):
     # Returns beeline distance along waypoints in between wp1 and wp2
     def distance(self, waypoints, wp1, wp2):
         dist = 0
-        for i in range(wp1, wp2+1):
+        for i in range(wp1, wp2 + 1):
             dist += distance(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
@@ -87,17 +86,20 @@ class WaypointUpdater(object):
     def kmph2mps(self, velocity_kmph):
         return (velocity_kmph * 1000.) / (60. * 60.)
 
+    def get_safe_breaking_distance(self, v, road_friction=1.2):
+        return (v ** 2) / (2.0 * road_friction * 9.81)
+
     # Main loop
     def loop(self):
         rate = rospy.Rate(10)
 
         while not rospy.is_shutdown():
             if self.cur_pos.header.seq > 0 and len(self.base_waypoints) > 0:
-		max_index = len(self.base_waypoints)
+                max_index = len(self.base_waypoints)
 
                 if len(self.final_waypoints) > 0:
                     # Final waypoints already exist so use as candidates for the next round
-		    waypoint_candidates = self.final_waypoints
+                    waypoint_candidates = self.final_waypoints
                 else:
                     # No Final waypoints so use the base waypoints
                     waypoint_candidates = self.base_waypoints
@@ -106,25 +108,54 @@ class WaypointUpdater(object):
                 nearest_wp = min(
                     waypoint_candidates,
                     key=lambda wp, pos=self.cur_pos: distance(pos.pose.position, wp.pose.pose.position))
+
                 # Make the nearest waypoint to be the current one and get its index
                 self.cur_wp_idx = self.base_waypoints.index(nearest_wp)
-		rospy.loginfo('current waypoint velocity: ' + str(self.get_waypoint_velocity(nearest_wp)))
+                #rospy.loginfo('current waypoint velocity %0.2f m/s', self.get_waypoint_velocity(nearest_wp))
 
                 # Generate & publish new final waypoints, if we moved
                 if self.cur_wp_idx != self.last_wp_idx:
                     del self.final_waypoints[:]
                     for i in range(0, LOOKAHEAD_WPS):
                         self.final_waypoints.append(self.base_waypoints[(self.cur_wp_idx + i) % max_index])
-                    rospy.loginfo('next_light_idx: ' + str(self.next_light_idx))
-                    if self.next_light_idx <> -1: #if there is an upcoming red light, set wp velocities to 0
-                        rospy.loginfo('next_light_idx <> -1')
-                        for i in range(0, LOOKAHEAD_WPS):
-                            self.set_waypoint_velocity(self.final_waypoints, i, 0)
-                    else:       #if there is no upcoming red light, set wp velocities to the max in rosparam
-                        rospy.loginfo('next_light_idx = -1')
+
+                    must_brake = False
+                    final_light_idx = (self.next_light_idx - self.cur_wp_idx) % max_index
+                    # Check if traffic light is within lookahead distance
+                    if self.next_light_idx != -1 and final_light_idx < LOOKAHEAD_WPS:
+                        # TODO Can we subscribe to actual velocity of car?
+                        v = self.get_waypoint_velocity(self.final_waypoints[0])
+                        min_break_dist = self.get_safe_breaking_distance(v)
+                        light_dist = self.distance(self.final_waypoints, 0, final_light_idx)
+
+                        # Check if traffic light is within braking distance
+                        if light_dist >= min_break_dist \
+                                or (light_dist == 0 and self.get_waypoint_velocity(self.final_waypoints[0]) < 1.0):
+                            rospy.loginfo('Red traffic light within %d m... breaking', light_dist)
+                            must_brake = True
+                        else:
+                            rospy.logwarn('Red traffic light within %d m... ignored', light_dist)
+
+                    if must_brake:
+                        # Initiate breaking
+                        remaining_dist = 0
+                        self.set_waypoint_velocity(self.final_waypoints, LOOKAHEAD_WPS - 1, 0)
+                        for i in range(LOOKAHEAD_WPS - 2, -1, -1):
+                            if i >= final_light_idx:
+                                # Everything beyond traffic light is 0 velocity
+                                self.set_waypoint_velocity(self.final_waypoints, i, 0)
+                            else:
+                                # Gradually decrease velocity based on remaining distance to traffic light
+                                # TODO Use better formula than linear decrease over whole distance
+                                remaining_dist += distance(self.final_waypoints[i].pose.pose.position, self.final_waypoints[i + 1].pose.pose.position)
+                                self.set_waypoint_velocity(self.final_waypoints, i, v * remaining_dist / light_dist)
+
+                    else:
+                        # Full throttle
                         for i in range(0, len(self.final_waypoints)):
                             self.set_waypoint_velocity(self.final_waypoints, i, self.max_velocity)
-                    rospy.loginfo('updated final waypoints')
+
+                    # Publish planning
                     self.publish()
                     self.last_wp_idx = self.cur_wp_idx
             rate.sleep()

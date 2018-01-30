@@ -71,9 +71,9 @@ class TLDetector(object):
         while not rospy.is_shutdown():
             # TODO remove when images start working correctly in sim
             light_wp, state = self.process_traffic_lights()
-            if state == TrafficLight.RED:
+            if state == TrafficLight.RED or state == TrafficLight.YELLOW:
                 self.upcoming_red_light_pub.publish(Int32(light_wp))
-                rospy.logwarn("Currently detected red light at ind {}".format(light_wp))
+                #rospy.loginfo("Currently detected red light at ind {}".format(light_wp))
             rate.sleep()
 
     def pose_cb(self, msg):
@@ -86,6 +86,9 @@ class TLDetector(object):
         self.lights = msg.lights
 
     def image_cb(self, msg):
+        #TODO remove early return when images start working correctly in sim
+        return
+
         """Identifies red lights in the incoming camera image and publishes the index
             of the waypoint closest to the red light's stop line to /traffic_waypoint
 
@@ -229,7 +232,6 @@ class TLDetector(object):
 
             # Get waypoint closest to current vehicle position
             wp_position_ind = self.get_closest_waypoint(self.pose)
-            rospy.logwarn("Closest WP {}".format(wp_position_ind))
             wp_position = self.waypoints.waypoints[wp_position_ind].pose.pose.position
 
             # Get stop line closest to waypoint position
