@@ -67,7 +67,7 @@ class DBWNode(object):
             min_speed=0.0,
             max_lat_accel=max_lat_accel,
             max_steer_angle=max_steer_angle,
-            th_kp=1.0,
+            th_kp=0.2,
             th_ki=0.0,
             th_kd=0.0,
             th_mn=0.0,
@@ -76,9 +76,8 @@ class DBWNode(object):
             br_ki=0.0,
             br_kd=0.0,
             br_mn=0.0,
-            br_mx=1.0, 
-            rate=rate
-            )
+            br_mx=2001.0, 
+            rate=rate)
         self.target_velocity = TwistStamped()
         self.current_velocity = TwistStamped()
         self.is_enabled = True

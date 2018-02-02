@@ -27,15 +27,13 @@ class Controller(object):
             ki=th_ki,
             kd=th_kd,
             mn=th_mn,
-            mx=th_mx, 
-            )
+            mx=th_mx)
         self.brake_controller = PID(
-            kp=th_kp,
-            ki=th_ki,
-            kd=th_kd,
-            mn=th_mn,
-            mx=th_mx, 
-            )
+            kp=br_kp,
+            ki=br_ki,
+            kd=br_kd,
+            mn=br_mn,
+            mx=br_mx )
         self.rate=rate
 
     def control(self, current_velocity, target_velocity):
@@ -47,17 +45,19 @@ class Controller(object):
 
         # TODO write decent throttle/brake control (PID)
         #throttle = (lin_v-cur_v)
-        
+       
         error = (lin_v-cur_v)
-        dead_band = 0.01
+        dead_band = 0.05*cur_v
         sample_time = 1.0/self.rate
-        
+
+
+      
         if error > dead_band:
             throttle = self.throttle_controller.step(error, sample_time)
             brake = 0.0
             self.brake_controller.reset()
         elif error < -dead_band:
-            brake = self.brake_controller.step(error, sample_time)
+            brake = self.brake_controller.step(-error, sample_time)
             throttle = 0.0
             self.throttle_controller.reset()
         else:
