@@ -32,7 +32,7 @@ class TLDetector(object):
         self.stop_lines = self.config['stop_line_positions']
         self.lights = []
 
-        self.imgcnt = 0;
+        self.imgcnt = 0
 
         self.has_image = False
 
@@ -214,11 +214,19 @@ class TLDetector(object):
             return light.state
             #return TrafficLight.UNKNOWN
 
+        print(self.camera_image.header)
         # Convert image to OpenCv format
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
+        if (0 != self.projs):
+            cv2.rectangle(cv_image,
+                          (int(self.projx-3.0*320.0*self.projs), int(self.projy-1000.0*self.projs)),
+                          (int(self.projx+3.0*320.0*self.projs), int(self.projy+5000.0*self.projs)),
+                          (255,0,0))
+        
         self.imgcnt = self.imgcnt + 1
-        filename = "cvimg-%i.png" % self.imgcnt
+        filename = "cvimg-%02i.png" % self.imgcnt
+        print(filename)
 
         cv2.imwrite(filename, cv_image)
 
@@ -234,9 +242,10 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        print("---- process_traffic_lights")
+        #print("---- process_traffic_lights")
         light = None
-
+        self.projs = 0;
+        
         # Check if pose is valid and waypoints are set
         if self.pose is not None and self.waypoints:
 
@@ -262,11 +271,11 @@ class TLDetector(object):
             t = self.listener.getLatestCommonTime("/world", "/base_link")
             (trans, rot) = self.listener.lookupTransform("/world",  "/base_link", t);
 
-            imagewidth = 640.0
-            imageheight = 480.0
+            imagewidth = 800.0
+            imageheight = 600.0
             trans_mat = tf.transformations.translation_matrix(trans)
             rot_mat = tf.transformations.quaternion_matrix(rot)
-            foc2 = 100.0 # you may want to adjust this to correspond to the FOV / focal length
+            foc2 = 5200.0 # you may want to adjust this to correspond to the FOV / focal length
             n = 1.0;     # you may want to adjust this if you want to look closer
             f = 100.0;   # you may want to adjust this if you want to took further
             t = imageheight/foc2;
@@ -279,10 +288,20 @@ class TLDetector(object):
             #                      [ 0,         2*n/(t-b), (t+b)/(t-b), 0           ],
             #                      [ 0,         0,        -(f+n)/(f-n), -2*f*n/(f-n)],
             #                      [ 0,         0,        -1,           0           ]]);
-            proj_mat = np.array([[-(r+l)/(r-l), -2*n/(r-l), 0,               0           ],
-                                 [-(t+b)/(t-b), 0,          2*n/(t-b),       0           ],
-                                 [ (f+n)/(f-n), 0,          0,               -2*f*n/(f-n)],
-                                 [ 1,           0,          0,               0           ]]);
+            proj_mat = np.array([[-(r+l)/(r-l), -2.0*n/(r-l), 0.0,         0.0           ],
+                                 [-(t+b)/(t-b),  0.0,         2.0*n/(t-b), 0.0           ],
+                                 [ (f+n)/(f-n),  0.0,         0.0,        -2.0*f*n/(f-n) ],
+                                 [ 1.0,          0.0,         0.0,         0.0           ]]);
+
+            # the camera is obviously looking upwards
+            al = 7.0*math.pi/180.0   # adjust the angle
+            cosa = math.cos(al)
+            sina = math.sin(al)
+            rotlookat_mat = np.array([[ cosa, 0.0, sina, 0.0 ],
+                                      [ 0.0,  1.0,  0.0, 0.0 ],
+                                      [-sina, 0.0, cosa, 0.0 ],
+                                      [ 0.0,  0.0,  0.0, 1.0 ]]);
+            #mat = rotlookat_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
             mat = np.linalg.inv(np.dot(trans_mat, rot_mat))
             #mat = proj_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
             
@@ -301,15 +320,15 @@ class TLDetector(object):
                 if (-1 < projected[0] and 1 > projected[0] and
                     -1 < projected[1] and 1 > projected[1] and
                     -1 < projected[2] and 1 > projected[2]):
-                    self.projx = projected[0]*imagewidth/2+imagewidth/2
-                    self.projy = projected[1]*imageheight/2+imageheight/2
-                    self.projs = 1/transformed[0];
-                    print("screenpos = %g %g scale = %g",
-                          projected[0]*imagewidth/2+imagewidth/2,
-                          projected[1]*imageheight/2+imageheight/2,
-                          1/transformed[0])
-                else:
-                    print("out")
+                    self.projx = projected[0]*imagewidth/2.0+imagewidth/2.0
+                    self.projy = -projected[1]*imageheight/2.0+imageheight/2.0
+                    self.projs = 1.0/transformed[0];
+                    #print("screenpos = %g %g scale = %g",
+                    #      self.projx,
+                    #      self.projy,
+                    #      self.projs)
+                #else:
+                    #print("out")
                 #light_pose = tf.Vector3Stamped()
                 #light_pose.vector.x = light.pose.pose.position.x;
                 #light_pose.vector.y = light.pose.pose.position.y,
