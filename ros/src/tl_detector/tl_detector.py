@@ -77,7 +77,8 @@ class TLDetector(object):
             rate.sleep()
 
     def pose_cb(self, msg):
-        self.pose = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        #print(msg);
+        self.pose = msg
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
@@ -133,17 +134,7 @@ class TLDetector(object):
         """
         return np.linalg.norm(first - second)
 
-    def get_closest_waypoint(self, pose):
-        """Identifies the closest path waypoint to the given position
-            https://en.wikipedia.org/wiki/Closest_pair_of_points_problem
-        Args:
-            pose (Pose): position to match a waypoint to
-
-        Returns:
-            int: index of the closest waypoint in self.waypoints
-
-        """
-
+    def get_closest_waypoint_xyz(self, pose):
         min_ind = None
         min_dist = 1e+100
 
@@ -155,6 +146,18 @@ class TLDetector(object):
                 min_dist = d
 
         return min_ind
+
+    def get_closest_waypoint(self, pose):
+        """Identifies the closest path waypoint to the given position
+            https://en.wikipedia.org/wiki/Closest_pair_of_points_problem
+        Args:
+            pose (Pose): position to match a waypoint to
+
+        Returns:
+            int: index of the closest waypoint in self.waypoints
+
+        """
+        return self.get_closest_waypoint_xyz(np.array([pose.position.x, pose.position.y, pose.position.z]))
 
     def get_closest_traffic_light(self, light_position):
         """
@@ -227,23 +230,30 @@ class TLDetector(object):
 
         """
 
+        light = None
+
         # Check if pose is valid and waypoints are set
         if self.pose is not None and self.waypoints:
 
-            # Get waypoint closest to current vehicle position
-            wp_position_ind = self.get_closest_waypoint(self.pose)
-            wp_position = self.waypoints.waypoints[wp_position_ind].pose.pose.position
+            print(self.lights)
 
+            # List of positions that correspond to the line to stop in front of for a given intersection
+            stop_line_positions = self.config['stop_line_positions']
+            # Get waypoint closest to current vehicle position
+            wp_position_ind = self.get_closest_waypoint(self.pose.pose)
+
+            #TODO find the closest visible traffic light (if one exists)
+
+            
+            wp_position = self.waypoints.waypoints[wp_position_ind].pose.pose.position
             # Get stop line closest to waypoint position
             stop_line = self.get_closest_stop_line(wp_position)
-
+            
+            
             # TODO Cant use delta x > 0 for global world coordinates,
             # TODO need to find other way to ensure that traffic light is ahead
             # TODO Also moved code into function "get_closest_stop_line"
             """
-            # List of positions that correspond to the line to stop in front of for a given intersection
-            stop_line_positions = self.config['stop_line_positions']
-            
             # Init variables for search
             detection_distance = 50
             min_light_dist = 1e+10
@@ -266,15 +276,22 @@ class TLDetector(object):
             #rospy.loginfo("Distance to closest traffic light {} is {}".format(closest_light_index, min_light_dist))
             """
 
+            
             if stop_line is not None:
                 # Get traffic light closest to stop line position
                 light = self.get_closest_traffic_light(stop_line)
                 if light is not None:
                     state = self.get_light_state(light)
                     stop_line_position = np.array([stop_line[0], stop_line[1], 0])
-                    light_wp_ind = self.get_closest_waypoint(stop_line_position)
+                    light_wp_ind = self.get_closest_waypoint_xyz(stop_line_position)
                     return light_wp_ind, state
+            
 
+
+#        if light:
+#            state = self.get_light_state(light)
+#            return light_wp, state
+#        self.waypoints = None
         return -1, TrafficLight.UNKNOWN
 
 
