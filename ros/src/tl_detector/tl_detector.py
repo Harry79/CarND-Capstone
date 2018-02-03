@@ -229,13 +229,13 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-
+        print("---- process_traffic_lights")
         light = None
 
         # Check if pose is valid and waypoints are set
         if self.pose is not None and self.waypoints:
 
-            print(self.lights)
+            # print(self.lights)
 
             # List of positions that correspond to the line to stop in front of for a given intersection
             stop_line_positions = self.config['stop_line_positions']
@@ -248,7 +248,64 @@ class TLDetector(object):
             wp_position = self.waypoints.waypoints[wp_position_ind].pose.pose.position
             # Get stop line closest to waypoint position
             stop_line = self.get_closest_stop_line(wp_position)
+            #print("HS: listener")
+            #print(self.listener);
+            #print("HS: pose")
+            #print(self.pose);
+
+            #tf::StampedTransform transform;
+            t = self.listener.getLatestCommonTime("/world", "/base_link")
+            (trans, rot) = self.listener.lookupTransform("/world",  "/base_link", t);
+
+            imagewidth = 640.0
+            imageheight = 480.0
+            trans_mat = tf.transformations.translation_matrix(trans)
+            rot_mat = tf.transformations.quaternion_matrix(rot)
+            foc2 = 100.0 # you may want to adjust this to correspond to the FOV / focal length
+            n = 1.0;     # you may want to adjust this if you want to look closer
+            f = 100.0;   # you may want to adjust this if you want to took further
+            t = imageheight/foc2;
+            b = -t;
+            r = imagewidth/foc2;
+            l = -r;
+
+            # http://www.glprogramming.com/red/appendixf.html
+            #proj_mat = np.matrix([[ 2*n/(r-l), 0,         (r+l)/(r-l), 0           ],
+            #                      [ 0,         2*n/(t-b), (t+b)/(t-b), 0           ],
+            #                      [ 0,         0,        -(f+n)/(f-n), -2*f*n/(f-n)],
+            #                      [ 0,         0,        -1,           0           ]]);
+            proj_mat = np.array([[-(r+l)/(r-l), -2*n/(r-l), 0,               0           ],
+                                 [-(t+b)/(t-b), 0,          2*n/(t-b),       0           ],
+                                 [ (f+n)/(f-n), 0,          0,               -2*f*n/(f-n)],
+                                 [ 1,           0,          0,               0           ]]);
+            mat = np.linalg.inv(np.dot(trans_mat, rot_mat))
+            #mat = proj_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
             
+            for light in self.lights:
+                transformed = mat.dot(np.array([light.pose.pose.position.x, light.pose.pose.position.y,
+                                              light.pose.pose.position.z, 1]));
+                projected = proj_mat.dot(transformed)
+                #print(proj_mat)
+                #                tansformed = self.pose.pose * light.pose.pose.position;
+                #print(mat);
+                #print(transformed)
+                #print(projected/projected[3])
+
+                projected = projected/projected[3]
+                # clip
+                if (-1 < projected[0] and 1 > projected[0] and
+                    -1 < projected[1] and 1 > projected[1] and
+                    -1 < projected[2] and 1 > projected[2]):
+                    print("screenpos = %g %g scale = %g",
+                          projected[0]*imagewidth/2+imagewidth/2,
+                          projected[1]*imageheight/2+imageheight/2,
+                          1/transformed[0])
+                else:
+                    print("out")
+                #light_pose = tf.Vector3Stamped()
+                #light_pose.vector.x = light.pose.pose.position.x;
+                #light_pose.vector.y = light.pose.pose.position.y,
+                #light_pose.vector.z = light.pose.pose.position.z);
             
             # TODO Cant use delta x > 0 for global world coordinates,
             # TODO need to find other way to ensure that traffic light is ahead
