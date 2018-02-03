@@ -32,6 +32,7 @@ class TLDetector(object):
         self.stop_lines = self.config['stop_line_positions']
         self.lights = []
 
+        self.imgcnt = 0;
 
         self.has_image = False
 
@@ -59,10 +60,9 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
-        #rospy.spin()
-
+        rospy.spin()
         # Enter processing loop
-        self.loop()
+        #self.loop()
 
     # Main loop
     def loop(self):
@@ -88,7 +88,7 @@ class TLDetector(object):
 
     def image_cb(self, msg):
         #TODO remove early return when images start working correctly in sim
-        return
+        #return
 
         """Identifies red lights in the incoming camera image and publishes the index
             of the waypoint closest to the red light's stop line to /traffic_waypoint
@@ -217,6 +217,11 @@ class TLDetector(object):
         # Convert image to OpenCv format
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
+        self.imgcnt = self.imgcnt + 1
+        filename = "cvimg-%i.png" % self.imgcnt
+
+        cv2.imwrite(filename, cv_image)
+
         # Get classification from DNN
         return self.light_classifier.get_classification(cv_image, light.state)
 
@@ -296,6 +301,9 @@ class TLDetector(object):
                 if (-1 < projected[0] and 1 > projected[0] and
                     -1 < projected[1] and 1 > projected[1] and
                     -1 < projected[2] and 1 > projected[2]):
+                    self.projx = projected[0]*imagewidth/2+imagewidth/2
+                    self.projy = projected[1]*imageheight/2+imageheight/2
+                    self.projs = 1/transformed[0];
                     print("screenpos = %g %g scale = %g",
                           projected[0]*imagewidth/2+imagewidth/2,
                           projected[1]*imageheight/2+imageheight/2,
