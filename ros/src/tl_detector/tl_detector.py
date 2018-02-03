@@ -297,12 +297,19 @@ class TLDetector(object):
             al = 7.0*math.pi/180.0   # adjust the angle
             cosa = math.cos(al)
             sina = math.sin(al)
+            bl = 0.7*math.pi/180.0   # adjust the angle
+            cosb = math.cos(bl)
+            sinb = math.sin(bl)
             rotlookat_mat = np.array([[ cosa, 0.0, sina, 0.0 ],
                                       [ 0.0,  1.0,  0.0, 0.0 ],
                                       [-sina, 0.0, cosa, 0.0 ],
                                       [ 0.0,  0.0,  0.0, 1.0 ]]);
-            #mat = rotlookat_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
-            mat = np.linalg.inv(np.dot(trans_mat, rot_mat))
+            rotlookatz_mat = np.array([[ cosb,-sinb, 0.0, 0.0 ],
+                                       [ sinb, cosb, 0.0, 0.0 ],
+                                       [ 0.0,  0.0,  1.0, 0.0 ],
+                                       [ 0.0,  0.0,  0.0, 1.0 ]]);
+            mat = rotlookatz_mat.dot(rotlookat_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat))))
+            #mat = np.linalg.inv(np.dot(trans_mat, rot_mat))
             #mat = proj_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
             
             for light in self.lights:
