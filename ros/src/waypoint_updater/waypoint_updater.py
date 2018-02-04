@@ -5,6 +5,7 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Point
 from styx_msgs.msg import Lane, Waypoint
 from std_msgs.msg import Int32
+from geometry_msgs.msg import TwistStamped
 
 import math
 
@@ -39,6 +40,7 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
         rospy.Subscriber('/obstacle_waypoint', Waypoint, self.obstacle_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
@@ -50,6 +52,7 @@ class WaypointUpdater(object):
         self.last_wp_idx = -1  # Index of wp from the previous loop
         self.next_light_idx = -1  # Index of the next light (-1 if no upcoming light)
         self.max_velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
+        self.cur_vel = 0  # Current velicity pulled from the /current_velicity topic
 
         # Enter processing loop
         self.loop()
@@ -68,6 +71,10 @@ class WaypointUpdater(object):
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
+
+    def velocity_cb(self, msg):
+        # Callback for /current_velocity
+        self.cur_vel = msg.twist.linear.x
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
@@ -123,8 +130,7 @@ class WaypointUpdater(object):
                     final_light_idx = (self.next_light_idx - self.cur_wp_idx) % max_index
                     # Check if traffic light is within lookahead distance
                     if self.next_light_idx != -1 and final_light_idx < LOOKAHEAD_WPS:
-                        # TODO Can we subscribe to actual velocity of car?
-                        v = self.get_waypoint_velocity(self.final_waypoints[0])
+                        v = self.cur_vel
                         min_break_dist = self.get_safe_breaking_distance(v)
                         light_dist = self.distance(self.final_waypoints, 0, final_light_idx)
 
