@@ -7,6 +7,7 @@ from styx_msgs.msg import Lane
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
+import os
 import tf
 import cv2
 import yaml
@@ -33,7 +34,7 @@ class TLDetector(object):
         self.lights = []
 
         self.imgcnt = 0
-
+        self.img_dump_dir = 'frames'
         self.has_image = False
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -158,6 +159,17 @@ class TLDetector(object):
         """
         return np.linalg.norm(first - second)
 
+
+    def dump_frame(self, frame_image):
+        if len(self.img_dump_dir) > 0:
+            if not os.path.exists(self.img_dump_dir):
+                os.makedirs(self.img_dump_dir)
+            bgr = cv2.cvtColor(frame_image, cv2.COLOR_RGB2BGR)
+            self.imgcnt = self.imgcnt + 1
+            filename = self.img_dump_dir + "/cvimg-%02i.png" % self.imgcnt
+            cv2.imwrite(filename, bgr)
+
+
     def get_closest_waypoint_xyz(self, pose):
         min_ind = None
         min_dist = 1e+100
@@ -240,19 +252,15 @@ class TLDetector(object):
 
         print(self.camera_image.header)
         # Convert image to OpenCv format
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
 
         if (0 != self.projs):
             cv2.rectangle(cv_image,
                           (int(self.projx-3.0*320.0*self.projs), int(self.projy-1000.0*self.projs)),
                           (int(self.projx+3.0*320.0*self.projs), int(self.projy+5000.0*self.projs)),
                           (255,0,0))
-        
-        self.imgcnt = self.imgcnt + 1
-        filename = "cvimg-%02i.png" % self.imgcnt
-        print(filename)
 
-        cv2.imwrite(filename, cv_image)
+        self.dump_frame(cv_image)
 
         # Get classification from DNN
         return self.light_classifier.get_classification(cv_image, light.state)
