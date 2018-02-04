@@ -52,6 +52,30 @@ class TLDetector(object):
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
         self.bridge = CvBridge()
+
+        # TODO Uncomment to activate classifier
+        '''
+        model = \
+            {
+                'input_width': 128,
+                'input_height': 128,
+                'input_depth': 3,
+                'resized_input_tensor_name': "input:0",
+                'output_tensor_name': "final_result:0",
+                'model_file_name': "graph.pb",
+                'labels_file_name': "labels.txt",
+                'input_mean': 127.5,
+                'input_std': 127.5
+            }
+        mapping = \
+            {
+                'none': TrafficLight.UNKNOWN,
+                'green': TrafficLight.GREEN,
+                'yellow': TrafficLight.YELLOW,
+                'red': TrafficLight.RED
+            }
+        self.light_classifier = TLClassifier(model, mapping)
+        '''
         self.light_classifier = TLClassifier()
         self.listener = tf.TransformListener()
 

@@ -8,8 +8,9 @@ import os
 
 
 class TLClassifier(object):
-    def __init__(self, model_info=None, collect_training_data=False):
+    def __init__(self, model_info=None, class_mapping=None, collect_training_data=False):
         self.model_info = model_info
+        self.class_mapping = class_mapping
         self.collect_training_data = collect_training_data
 
         if self.model_info is not None:
@@ -72,15 +73,22 @@ class TLClassifier(object):
                 predictions, = sess.run(result_tensor, {self.model_info['resized_input_tensor_name']: [image]})
                 top_k = predictions.argsort()[-2:][::-1]
 
+                # TODO remove debugging output
                 for node_id in top_k:
-                    human_string = self.labels[node_id]
-                    score = predictions[node_id]
-                    print('%s (score = %.5f)' % (human_string, score))
+                    print('%s (score = %.5f)' % (self.labels[node_id], predictions[node_id]))
 
-                if predictions[top_k[0]] > 0.5 and predictions[top_k[0]] > predictions[top_k[1]] + 0.15:
-                    return top_k[0]
+                top_class = top_k[0]
+                if predictions[top_class] > 0.5 and predictions[top_class] > predictions[top_k[1]] + 0.15:
+                    if self.class_mapping:
+                        return self.class_mapping[self.labels[top_class]]
+                    else:
+                        return top_class
 
-        return TrafficLight.UNKNOWN
+        # No clear detection
+        if self.class_mapping:
+            return self.class_mapping['none']
+        else:
+            return -1
 
 
 if __name__ == '__main__':
@@ -103,4 +111,4 @@ if __name__ == '__main__':
     # Test on image
     bgr = cv2.imread("test_daisy.jpg")
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-    classifier.get_classification(rgb)
+    print ('detected class: %d' % classifier.get_classification(rgb))
