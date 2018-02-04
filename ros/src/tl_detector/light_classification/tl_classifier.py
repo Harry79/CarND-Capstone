@@ -31,23 +31,23 @@ class TLClassifier(object):
 
     @staticmethod
     def save_training_img(image, state):
-        tl_color = "Unknown"
-        if state:
-            if state == TrafficLight.GREEN:
-                tl_color = "Green"
-            elif state == TrafficLight.YELLOW:
-                tl_color = "Yellow"
-            elif state == TrafficLight.RED:
-                tl_color = "Red"
+        if state == TrafficLight.GREEN:
+            tl_color = "Green"
+        elif state == TrafficLight.YELLOW:
+            tl_color = "Yellow"
+        elif state == TrafficLight.RED:
+            tl_color = "Red"
+        else:
+            tl_color = "Unknown"
 
-        if tl_color:
-            directory = "gt/{}".format(tl_color)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+        directory = "gt/{}".format(tl_color)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-            time_str = time.strftime("%Y%m%d-%H%M%S")
-            file_name = directory + "/img_{}.png".format(time_str)
-            cv2.imwrite(file_name, image)
+        time_str = time.strftime("%Y%m%d-%H%M%S")
+        file_name = directory + "/img_{}.png".format(time_str)
+        bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(file_name, bgr)
 
 
     """Determines the color of the traffic light in the image
@@ -60,7 +60,7 @@ class TLClassifier(object):
     def get_classification(self, image, state=None):
         if self.collect_training_data and state is not None:
             # Save labeled image for training
-            # self.save_training_img(image, state)
+            self.save_training_img(image, state)
             return state
         elif self.model_info is not None:
             with tf.Session() as sess:
