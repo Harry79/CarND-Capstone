@@ -50,7 +50,8 @@ class WaypointUpdater(object):
         self.cur_pos = PoseStamped()
         self.cur_wp_idx = -1  # Index of wp we want to move to in the current loop
         self.last_wp_idx = -1  # Index of wp from the previous loop
-        self.next_light_idx = -1  # Index of the next light (-1 if no upcoming light)
+        self.cur_light_idx = -1  # Index of the nearest light (-1 if none)
+        self.last_light_idx = -1  # Index of the nearest light from the previous loop
         self.max_velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
         self.cur_vel = 0  # Current velicity pulled from the /current_velicity topic
 
@@ -66,7 +67,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # Callback for /traffic_waypoint message
-        self.next_light_idx = msg.data
+        self.cur_light_idx = msg.data
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -121,15 +122,15 @@ class WaypointUpdater(object):
                 #rospy.loginfo('current waypoint velocity %0.2f m/s', self.get_waypoint_velocity(nearest_wp))
 
                 # Generate & publish new final waypoints, if we moved
-                if self.cur_wp_idx != self.last_wp_idx:
+                if self.cur_wp_idx != self.last_wp_idx or self.cur_light_idx != self.last_light_idx:
                     del self.final_waypoints[:]
                     for i in range(0, LOOKAHEAD_WPS):
                         self.final_waypoints.append(self.base_waypoints[(self.cur_wp_idx + i) % max_index])
 
                     must_brake = False
-                    final_light_idx = (self.next_light_idx - self.cur_wp_idx) % max_index
+                    final_light_idx = (self.cur_light_idx - self.cur_wp_idx) % max_index
                     # Check if traffic light is within lookahead distance
-                    if self.next_light_idx != -1 and final_light_idx < LOOKAHEAD_WPS:
+                    if self.cur_light_idx != -1 and final_light_idx < LOOKAHEAD_WPS:
                         v = self.cur_vel
                         min_break_dist = self.get_safe_breaking_distance(v)
                         light_dist = self.distance(self.final_waypoints, 0, final_light_idx)
@@ -164,6 +165,7 @@ class WaypointUpdater(object):
                     # Publish planning
                     self.publish()
                     self.last_wp_idx = self.cur_wp_idx
+                    self.last_light_idx = self.cur_light_idx
             rate.sleep()
 
     # Publish final waypoints
