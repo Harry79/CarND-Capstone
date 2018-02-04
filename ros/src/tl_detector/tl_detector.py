@@ -299,7 +299,6 @@ class TLDetector(object):
         # mat = np.linalg.inv(np.dot(trans_mat, rot_mat))
         # mat = proj_mat.dot(np.linalg.inv(np.dot(trans_mat, rot_mat)))
 
-        projections = []
         for light in lights:
             transformed = mat.dot(
                 np.array([light.pose.pose.position.x, light.pose.pose.position.y, light.pose.pose.position.z, 1]))
