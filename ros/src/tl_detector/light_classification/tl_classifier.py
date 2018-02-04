@@ -60,7 +60,7 @@ class TLClassifier(object):
     def get_classification(self, image, state=None):
         if self.collect_training_data and state is not None:
             # Save labeled image for training
-            self.save_training_img(image, state)
+            #self.save_training_img(image, state)
             return state
         elif self.model_info is not None:
             with tf.Session() as sess:
