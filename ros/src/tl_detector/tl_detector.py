@@ -77,6 +77,7 @@ class TLDetector(object):
         self.img_dump_dir = ''  # Set to <out_dir_name> to enabled frame dumping
         self.img_size = (self.config['camera_info']['image_width'], self.config['camera_info']['image_height'])
         self.focal_length = (self.config['camera_info']['focal_length_x'], self.config['camera_info']['focal_length_y'])
+        self.bounds_base = ((-1152, -1200), (1152, 5200))
         self.has_image = False
         self.listener = tf.TransformListener()
 
@@ -241,10 +242,10 @@ class TLDetector(object):
         # Estimate bounds
         proj = light_projection[1]
         if proj[2] != 0:
-            x1 = max(0, min(int(proj[0] - 3.0 * 320.0 * proj[2]), self.img_size[0] - 1))
-            y1 = max(0, min(int(proj[1] - 1000.0      * proj[2]), self.img_size[1] - 1))
-            x2 = max(0, min(int(proj[0] + 3.0 * 320.0 * proj[2]), self.img_size[0] - 1))
-            y2 = max(0, min(int(proj[1] + 5000.0      * proj[2]), self.img_size[1] - 1))
+            x1 = max(0, min(int(proj[0] + self.bounds_base[0][0] * proj[2]), self.img_size[0] - 1))
+            y1 = max(0, min(int(proj[1] + self.bounds_base[0][1] * proj[2]), self.img_size[1] - 1))
+            x2 = max(0, min(int(proj[0] + self.bounds_base[1][0] * proj[2]), self.img_size[0] - 1))
+            y2 = max(0, min(int(proj[1] + self.bounds_base[1][1] * proj[2]), self.img_size[1] - 1))
             self.dump_frame(cv_image, x1, y1, x2, y2, (255, 0, 0))
 
             # Get classification from DNN
@@ -267,9 +268,9 @@ class TLDetector(object):
         rot_mat = tf.transformations.quaternion_matrix(rot)
         n = 1.0  # you may want to adjust this if you want to look closer
         f = 100.0  # you may want to adjust this if you want to took further
-        t = image_height / self.focal_length[1]
+        t = image_height / (2 * self.focal_length[1])
         b = -t
-        r = image_width / self.focal_length[0]
+        r = image_width / (2 * self.focal_length[0])
         l = -r
 
         # http://www.glprogramming.com/red/appendixf.html
