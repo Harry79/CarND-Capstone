@@ -148,7 +148,7 @@ class WaypointUpdater(object):
                         remaining_dist = 0
                         self.set_waypoint_velocity(self.final_waypoints, LOOKAHEAD_WPS - 1, 0)
                         for i in range(LOOKAHEAD_WPS - 2, -1, -1):
-                            if i >= final_light_idx:
+                            if i >= final_light_idx - 5:
                                 # Everything beyond traffic light is 0 velocity
                                 self.set_waypoint_velocity(self.final_waypoints, i, 0)
                             else:
