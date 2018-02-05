@@ -99,6 +99,8 @@ class TLDetector(object):
             if state == TrafficLight.RED or state == TrafficLight.YELLOW:
                 self.upcoming_red_light_pub.publish(Int32(light_wp))
                 #rospy.loginfo("Currently detected red light at ind {}".format(light_wp))
+            else:
+                self.upcoming_red_light_pub.publish(Int32(-1))
             rate.sleep()
 
     def pose_cb(self, msg):
@@ -231,7 +233,7 @@ class TLDetector(object):
     def get_light_state(self, light_projection):
         # Check if there is really an image
         if not self.has_image:
-            return light_projection[0].state if self.workaround_sim else TrafficLight.UNKNOWN
+            return TrafficLight.UNKNOWN
 
         # Convert image to OpenCv format
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
@@ -339,8 +341,7 @@ class TLDetector(object):
     int: ID of traffic light color (specified in styx_msgs/TrafficLight)
     """
     def process_traffic_lights(self):
-        self.projs = 0
-        
+
         # Check if pose is valid and waypoints are set
         if self.pose and self.waypoints and self.lights and self.stop_lines:
 
@@ -348,22 +349,29 @@ class TLDetector(object):
             lights = self.get_closest_traffic_lights(self.pose.pose)
 
             if len(lights) > 0:
-                # Get closest projected light in view
-                light_projection = self.project_traffic_light_to_view(lights)
+                if self.workaround_sim:
+                    # Forward ground truth from sim
+                    stop_line = self.get_closest_stop_line(lights[0].pose.pose.position)
+                    stop_line_position = np.array([stop_line[0], stop_line[1], 0])
+                    light_wp_ind = self.get_closest_waypoint_xyz(stop_line_position)
+                    return light_wp_ind, lights[0].state
+                else:
+                    # Get closest projected light in view
+                    light_projection = self.project_traffic_light_to_view(lights)
 
-                if light_projection[0]:
-                    # Get state of light
-                    state = self.get_light_state(light_projection)
+                    if light_projection[0]:
+                        # Get state of light
+                        state = self.get_light_state(light_projection)
 
-                    # Get stop line closest to light
-                    stop_line = self.get_closest_stop_line(light_projection[0].pose.pose.position)
+                        # Get stop line closest to light
+                        stop_line = self.get_closest_stop_line(light_projection[0].pose.pose.position)
 
-                    if stop_line:
-                        stop_line_position = np.array([stop_line[0], stop_line[1], 0])
+                        if stop_line:
+                            stop_line_position = np.array([stop_line[0], stop_line[1], 0])
 
-                        # Get waypoint closest to stopline
-                        light_wp_ind = self.get_closest_waypoint_xyz(stop_line_position)
-                        return light_wp_ind, state
+                            # Get waypoint closest to stopline
+                            light_wp_ind = self.get_closest_waypoint_xyz(stop_line_position)
+                            return light_wp_ind, state
         return -1, TrafficLight.UNKNOWN
 
 
