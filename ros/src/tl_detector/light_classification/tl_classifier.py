@@ -74,8 +74,8 @@ class TLClassifier(object):
                 top_k = predictions.argsort()[-2:][::-1]
 
                 # TODO remove debugging output
-                for node_id in top_k:
-                    print('%s (score = %.5f)' % (self.labels[node_id], predictions[node_id]))
+                #for node_id in top_k:
+                #    print('%s (score = %.5f)' % (self.labels[node_id], predictions[node_id]))
 
                 top_class = top_k[0]
                 if predictions[top_class] > 0.5 and predictions[top_class] > predictions[top_k[1]] + 0.15:
@@ -89,6 +89,12 @@ class TLClassifier(object):
             return self.class_mapping['none']
         else:
             return -1
+
+
+def test_file(file_name, classifier):
+    bgr = cv2.imread(file_name)
+    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    print ('file: %s, detected class: %s' % (file_name, classifier.get_classification(rgb)))
 
 
 if __name__ == '__main__':
@@ -106,9 +112,16 @@ if __name__ == '__main__':
             'input_mean': 127.5,
             'input_std': 127.5
         }
-    classifier = TLClassifier(model)
+    mapping = \
+        {
+            'none': 'TrafficLight.UNKNOWN',
+            'green': 'TrafficLight.GREEN',
+            'yellow': 'TrafficLight.YELLOW',
+            'red': 'TrafficLight.RED'
+        }
+    classifier = TLClassifier(model, mapping)
 
     # Test on image
-    bgr = cv2.imread("test_daisy.jpg")
-    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-    print ('detected class: %d' % classifier.get_classification(rgb))
+    test_file("test_red.png", classifier)
+    test_file("test_yellow.png", classifier)
+    test_file("test_green.png", classifier)
