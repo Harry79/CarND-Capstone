@@ -15,10 +15,12 @@ class TLClassifier(object):
 
         if self.model_info is not None:
             # Load the persisted model into default graph
-            with tf.gfile.FastGFile(model_info['model_file_name'], 'rb') as f:
-                graph_def = tf.GraphDef()
-                graph_def.ParseFromString(f.read())
-                tf.import_graph_def(graph_def, name='')
+            self.graph = tf.Graph()
+            with self.graph.as_default():
+                with tf.gfile.FastGFile(model_info['model_file_name'], 'rb') as f:
+                    graph_def = tf.GraphDef()
+                    graph_def.ParseFromString(f.read())
+                    tf.import_graph_def(graph_def, name='')
 
             # Set input format
             self.input_size = (self.model_info['input_width'], self.model_info['input_height'])
@@ -60,10 +62,10 @@ class TLClassifier(object):
     def get_classification(self, image, state=None):
         if self.collect_training_data and state is not None:
             # Save labeled image for training
-            #self.save_training_img(image, state)
+            self.save_training_img(image, state)
             return state
         elif self.model_info is not None:
-            with tf.Session() as sess:
+            with tf.Session(graph=self.graph) as sess:
                 # Preprocess
                 image = scipy.misc.imresize(image, self.input_size, 'bilinear')
                 image = np.squeeze((image.astype('Float32') - self.input_mean) / self.input_std)

@@ -66,7 +66,7 @@ class TLDetector(object):
                 'yellow': TrafficLight.YELLOW,
                 'red': TrafficLight.RED
             }
-        self.light_classifier = TLClassifier(model, mapping, True)
+        self.light_classifier = TLClassifier(model, mapping, False)
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
