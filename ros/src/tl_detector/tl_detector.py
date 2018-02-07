@@ -77,7 +77,7 @@ class TLDetector(object):
         self.img_dump_dir = ''  # Set to <out_dir_name> to enabled frame dumping
         self.img_size = (self.config['camera_info']['image_width'], self.config['camera_info']['image_height'])
         self.focal_length = (self.config['camera_info']['focal_length_x'], self.config['camera_info']['focal_length_y'])
-        self.bounds_base = ((-1600, -1200), (1600, 5200))
+        self.bounds_base = ((-3500,-1000),(3500,6000)) #((-1600, -1200), (1600, 5200))
         self.has_image = False
         self.listener = tf.TransformListener()
 
