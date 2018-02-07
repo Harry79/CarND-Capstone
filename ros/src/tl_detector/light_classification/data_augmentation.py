@@ -45,16 +45,16 @@ def squash(image):
 
 # Offset right with random y movement
 def offset_right(image):
-    offset_x = 2
-    offset_y = random.randint(-2, 2)
+    offset_x = random.randint(2, 4)
+    offset_y = random.randint(-4, 4)
     transform = imgtf.AffineTransform(translation=(offset_x, offset_y))
     image = imgtf.warp(image, transform, mode='wrap', preserve_range=True)
     return np.clip(image, 0, 255).astype(np.uint8)
 
 # Offset left with random y movement
 def offset_left(image):
-    offset_x = -2
-    offset_y = random.randint(-2, 2)
+    offset_x = random.randint(-4, -2)
+    offset_y = random.randint(-4, 4)
     transform = imgtf.AffineTransform(translation=(offset_x, offset_y))
     image = imgtf.warp(image, transform, mode='wrap', preserve_range=True)
     return np.clip(image, 0, 255).astype(np.uint8)
@@ -133,16 +133,21 @@ def augment(base_dir, aug_count):
                 print('No files found')
                 continue
 
-            print("Augmenting.." + str(len(file_list)) + " images")
-            for file_name in file_list:
-                # Perform augmentation by random operation
-                image = imgio.imread(file_name)
-                selection = np.random.choice([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aug_count, replace=False)
-                print(len(selection))
-                for operation in selection:
-                    augmented = operations[operation](image)
-                    imgio.imsave(file_name.replace('.png', str(operation)+'.jpg'), augmented)
+            if len(file_list) > 20:
+                print("Converting.." + str(len(file_list)) + " images")
+                for file_name in file_list:
+                    image = imgio.imread(file_name)
+                    imgio.imsave(file_name.replace('.png', '.jpg'), image)
+            else:
+                print("Augmenting.." + str(len(file_list)) + " images")
+                for file_name in file_list:
+                    # Perform augmentation by random operation
+                    image = imgio.imread(file_name)
+                    selection = np.random.choice(operations.keys(), aug_count, replace=False)
+                    for operation in selection:
+                        augmented = operations[operation](image)
+                        imgio.imsave(file_name.replace('.png', str(operation)+'.jpg'), augmented)
 
 
 if __name__ == '__main__':
-    augment("/home/thomas/Projects/Python/flower_photos", 11)
+    augment("/home/thomas/Projects/Python/flower_photos", 5)

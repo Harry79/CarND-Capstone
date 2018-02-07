@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import time
 import os
-
+import rospy
 
 class TLClassifier(object):
     def __init__(self, model_info=None, class_mapping=None, collect_training_data=False):
@@ -74,13 +74,13 @@ class TLClassifier(object):
                 result_tensor = sess.graph.get_tensor_by_name(self.model_info['output_tensor_name'])
                 predictions, = sess.run(result_tensor, {self.model_info['resized_input_tensor_name']: [image]})
                 top_k = predictions.argsort()[-2:][::-1]
+                top_class = top_k[0]
 
                 # TODO remove debugging output
                 #for node_id in top_k:
                 #    print('%s (score = %.5f)' % (self.labels[node_id], predictions[node_id]))
-
-                top_class = top_k[0]
-                if predictions[top_class] > 0.5 and predictions[top_class] > predictions[top_k[1]] + 0.15:
+                rospy.loginfo('%s (score = %.5f)' % (self.labels[top_class], predictions[top_class]))
+                if predictions[top_class] > 0.25 and predictions[top_class] > predictions[top_k[1]] + 0.1:
                     if self.class_mapping:
                         return self.class_mapping[self.labels[top_class]]
                     else:
@@ -124,6 +124,6 @@ if __name__ == '__main__':
     classifier = TLClassifier(model, mapping)
 
     # Test on image
-    test_file("test_red.png", classifier)
+    test_file("img_20180207-035031.jpg", classifier)
     test_file("test_yellow.png", classifier)
     test_file("test_green.png", classifier)
