@@ -66,6 +66,13 @@ class TLClassifier(object):
             self.save_training_img(image, state)
             return state
         elif self.model_info is not None:
+
+            # No clear detection
+            if self.class_mapping:
+                result = self.class_mapping['none']
+            else:
+                result = -1
+
             with tf.Session(graph=self.graph) as sess:
                 # Preprocess
                 input_image = scipy.misc.imresize(image, self.input_size, 'bilinear')
@@ -81,6 +88,7 @@ class TLClassifier(object):
                 #for node_id in top_k:
                 #    print('%s (score = %.5f)' % (self.labels[node_id], predictions[node_id]))
                 rospy.loginfo('%s (score = %.5f)' % (self.labels[top_class], predictions[top_class]))
+
                 if predictions[top_class] > 0.25 and predictions[top_class] > predictions[top_k[1]] + 0.1:
                     if self.class_mapping:
                         result = self.class_mapping[self.labels[top_class]]
@@ -92,13 +100,8 @@ class TLClassifier(object):
                         os.makedirs('gt')
                     cv2.imwrite('gt/%d_Detected_%d_as_%d.png' % (self.count, state, result), bgr)
                     self.count += 1
-                return result
 
-        # No clear detection
-        if self.class_mapping:
-            return self.class_mapping['none']
-        else:
-            return -1
+            return result
 
 
 def test_file(file_name, classifier):
