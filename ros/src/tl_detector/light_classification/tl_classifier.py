@@ -12,6 +12,7 @@ class TLClassifier(object):
         self.model_info = model_info
         self.class_mapping = class_mapping
         self.collect_training_data = collect_training_data
+        self.count = 0
 
         if self.model_info is not None:
             # Load the persisted model into default graph
@@ -67,12 +68,12 @@ class TLClassifier(object):
         elif self.model_info is not None:
             with tf.Session(graph=self.graph) as sess:
                 # Preprocess
-                image = scipy.misc.imresize(image, self.input_size, 'bilinear')
-                image = np.squeeze((image.astype('Float32') - self.input_mean) / self.input_std)
+                input_image = scipy.misc.imresize(image, self.input_size, 'bilinear')
+                input_image = np.squeeze((input_image.astype('Float32') - self.input_mean) / self.input_std)
 
                 # Classifiy
                 result_tensor = sess.graph.get_tensor_by_name(self.model_info['output_tensor_name'])
-                predictions, = sess.run(result_tensor, {self.model_info['resized_input_tensor_name']: [image]})
+                predictions, = sess.run(result_tensor, {self.model_info['resized_input_tensor_name']: [input_image]})
                 top_k = predictions.argsort()[-2:][::-1]
                 top_class = top_k[0]
 
@@ -82,9 +83,16 @@ class TLClassifier(object):
                 rospy.loginfo('%s (score = %.5f)' % (self.labels[top_class], predictions[top_class]))
                 if predictions[top_class] > 0.25 and predictions[top_class] > predictions[top_k[1]] + 0.1:
                     if self.class_mapping:
-                        return self.class_mapping[self.labels[top_class]]
+                        result = self.class_mapping[self.labels[top_class]]
                     else:
-                        return top_class
+                        result = top_class
+                if state is not None and result != state:
+                    bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                    if not os.path.exists('gt'):
+                        os.makedirs('gt')
+                    cv2.imwrite('gt/%d_Detected_%d_as_%d.png' % (self.count, state, result), bgr)
+                    self.count += 1
+                return result
 
         # No clear detection
         if self.class_mapping:
@@ -124,6 +132,6 @@ if __name__ == '__main__':
     classifier = TLClassifier(model, mapping)
 
     # Test on image
-    test_file("img_20180207-035031.jpg", classifier)
+    test_file("test_red.png", classifier)
     test_file("test_yellow.png", classifier)
     test_file("test_green.png", classifier)

@@ -90,6 +90,10 @@ def color_noise(image):
     image += noise
     return np.clip(image, 0, 255).astype(np.uint8)
 
+# Do nothing
+def identity(image):
+    return image
+
 # Dictionary of supported augmentation operations
 operations = {
     0: rotate_right,
