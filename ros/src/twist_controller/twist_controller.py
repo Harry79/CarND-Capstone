@@ -47,7 +47,7 @@ class Controller(object):
         #throttle = (lin_v-cur_v)
        
         error = (lin_v-cur_v)
-        dead_band = 0.05*cur_v
+        dead_band = 0.2*cur_v
         sample_time = 1.0/self.rate
 
 
